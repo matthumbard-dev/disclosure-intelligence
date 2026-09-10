@@ -1,0 +1,17 @@
+Disclosure Intelligence - Instrumented SEC Recovery v6
+
+Purpose:
+- Makes every SEC collection stage visible in Render Application Logs.
+- Uses a direct-source-first parser. Daily-index .txt filing packages are parsed directly.
+- Keeps fallback primary-document lookup for compatibility.
+- Manual Refresh launches an explicit collector thread and immediately records a visible stage.
+- /api/status exposes scan stage and detailed counters.
+
+After deploy:
+1. Wait until Render shows Live.
+2. Hard refresh the site (Ctrl+Shift+R).
+3. Click Refresh market now once.
+4. Watch the top-right status. It should move through queued/discovery/saved/market enrichment.
+5. Render Logs will contain lines beginning [APP] and [SEC].
+
+Keep SEC_USER_AGENT configured in Render.

@@ -1,5 +1,5 @@
 from __future__ import annotations
-import gc, os, threading, time, resource
+import gc, os, threading, time, resource, logging, json, traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import FastAPI, BackgroundTasks
@@ -11,8 +11,11 @@ from market_store import init_market,put_price,put_news,put_cot,read_market
 from story_builder import build_story
 
 BASE=Path(__file__).resolve().parent
-app=FastAPI(title='Disclosure Intelligence Low Memory')
+app=FastAPI(title='Disclosure Intelligence Instrumented')
 _job_lock=threading.Lock()
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s', force=True)
+LOG=logging.getLogger('disclosure.app')
+def log(msg,*args): LOG.info('[APP] '+msg,*args)
 
 def now_iso(): return datetime.now(timezone.utc).isoformat()
 
@@ -28,24 +31,32 @@ def stale(key,minutes):
 
 def sync_sec_bounded():
     ua=os.getenv('SEC_USER_AGENT','').strip()
+    log('SEC stage entered. user_agent_configured=%s',bool(ua and '@' in ua))
     if not ua or '@' not in ua:
-        set_meta('last_error','SEC_USER_AGENT is not configured on the server.'); return 0
-    set_meta('sync_status','syncing'); set_meta('last_error',''); set_meta('memory_before_sec',memory_mb())
+        msg='SEC_USER_AGENT is not configured on the server.'
+        set_meta('last_error',msg); set_meta('sync_status','error'); log(msg); return 0
+    set_meta('sync_status','syncing'); set_meta('sync_stage','starting'); set_meta('last_error',''); set_meta('memory_before_sec',memory_mb())
     count=0
     try:
         client=SecClient(ua)
         def save_one(ev):
             nonlocal count
             upsert_event(ev); count+=1
-        # Hard bounds are deliberate for Render Free (512 MB).
-        scan_market(client,max_filings=int(os.getenv('SEC_BATCH_SIZE','32')),feed_count=int(os.getenv('SEC_FEED_COUNT','80')),on_event=save_one)
+            set_meta('sync_stage',f'saved {count} usable events')
+        batch=int(os.getenv('SEC_BATCH_SIZE','32')); feed=int(os.getenv('SEC_FEED_COUNT','80'))
+        log('SEC scan calling scan_market batch=%d feed=%d peak_mem=%.1fMB',batch,feed,memory_mb())
+        set_meta('sync_stage','discovering SEC filings')
+        scan_market(client,max_filings=batch,feed_count=feed,on_event=save_one)
         stats=getattr(client,'last_scan_stats',{}) or {}
-        import json
         set_meta('last_scan_stats',json.dumps(stats,separators=(',',':')))
-        set_meta('last_sync',now_iso()); set_meta('last_count',count); set_meta('sync_status','idle')
+        set_meta('last_sync',now_iso()); set_meta('last_count',count); set_meta('sync_status','idle'); set_meta('sync_stage',f'complete: {count} usable events')
+        log('SEC stage complete count=%d stats=%s peak_mem=%.1fMB',count,json.dumps(stats,separators=(',',':'))[:1800],memory_mb())
         return count
     except Exception as e:
-        set_meta('last_error',str(e)[:800]); set_meta('sync_status','error'); return count
+        msg=f'{type(e).__name__}: {e}'[:1200]
+        set_meta('last_error',msg); set_meta('sync_status','error'); set_meta('sync_stage','failed')
+        log('SEC stage EXCEPTION %s\n%s',msg,traceback.format_exc())
+        return count
     finally:
         gc.collect(); set_meta('memory_after_sec',memory_mb())
 
@@ -65,14 +76,21 @@ def sync_layers_bounded():
         gc.collect(); set_meta('memory_after_layers',memory_mb())
 
 def full_cycle():
-    if not _job_lock.acquire(blocking=False): return
+    if not _job_lock.acquire(blocking=False):
+        log('Cycle request ignored: another cycle is running'); return
     try:
-        set_meta('job_status','running')
-        sync_sec_bounded()
-        # Never overlap SEC parsing and enrichment in memory.
+        set_meta('job_status','running'); set_meta('job_started',now_iso())
+        log('FULL CYCLE START peak_mem=%.1fMB',memory_mb())
+        sec_count=sync_sec_bounded()
         gc.collect()
+        log('SEC returned %d usable events; starting enrichment',sec_count)
+        set_meta('sync_stage','market enrichment')
         sync_layers_bounded()
-        set_meta('job_status','idle'); set_meta('last_cycle',now_iso())
+        set_meta('job_status','idle'); set_meta('last_cycle',now_iso()); set_meta('sync_stage','idle')
+        log('FULL CYCLE COMPLETE peak_mem=%.1fMB',memory_mb())
+    except Exception as exc:
+        set_meta('job_status','error'); set_meta('last_error',f'{type(exc).__name__}: {exc}'[:1200]); set_meta('sync_stage','cycle failed')
+        log('FULL CYCLE EXCEPTION %s\n%s',exc,traceback.format_exc())
     finally:
         gc.collect(); _job_lock.release()
 
@@ -88,6 +106,7 @@ def scheduler():
 def startup():
     init_market(); purge_demo(); purge_unresolved()
     set_meta('boot_memory_mb',memory_mb())
+    log('STARTUP db=%s peak_mem=%.1fMB',str(getattr(__import__('db'),'DB_PATH','')),memory_mb())
     threading.Thread(target=scheduler,daemon=True,name='bounded-collector').start()
 
 @app.get('/')
@@ -116,13 +135,15 @@ def status():
     import json
     try: scan_stats=json.loads(get_meta('last_scan_stats','{}') or '{}')
     except Exception: scan_stats={}
-    return {'last_sync':get_meta('last_sync'),'last_count':get_meta('last_count','0'),'sync_status':get_meta('sync_status','idle'),'last_error':get_meta('last_error',''),'scan_stats':scan_stats,'layer_sync':get_meta('layer_sync'),'layer_status':get_meta('layer_status','idle'),'job_status':get_meta('job_status','idle'),'memory_mb':memory_mb(),'boot_memory_mb':get_meta('boot_memory_mb',''),'memory_after_sec':get_meta('memory_after_sec',''),'memory_after_layers':get_meta('memory_after_layers','')}
+    return {'last_sync':get_meta('last_sync'),'last_count':get_meta('last_count','0'),'sync_status':get_meta('sync_status','idle'),'sync_stage':get_meta('sync_stage','idle'),'job_started':get_meta('job_started',''),'last_error':get_meta('last_error',''),'scan_stats':scan_stats,'layer_sync':get_meta('layer_sync'),'layer_status':get_meta('layer_status','idle'),'job_status':get_meta('job_status','idle'),'memory_mb':memory_mb(),'boot_memory_mb':get_meta('boot_memory_mb',''),'memory_after_sec':get_meta('memory_after_sec',''),'memory_after_layers':get_meta('memory_after_layers','')}
 
 @app.post('/api/sync-market')
-def sync(background_tasks:BackgroundTasks):
-    if _job_lock.locked(): return {'ok':True,'message':'A bounded collection cycle is already running.'}
-    background_tasks.add_task(full_cycle)
-    return {'ok':True,'message':'Bounded SEC + market enrichment cycle started.'}
+def sync():
+    log('POST /api/sync-market received lock=%s',_job_lock.locked())
+    if _job_lock.locked(): return {'ok':True,'message':'A collection cycle is already running.'}
+    set_meta('job_status','queued'); set_meta('sync_stage','queued by dashboard')
+    threading.Thread(target=full_cycle,daemon=True,name='manual-collector').start()
+    return {'ok':True,'message':'Instrumented SEC + market collection started.'}
 
 @app.post('/api/sync-layers')
 def layers(background_tasks:BackgroundTasks):
