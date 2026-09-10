@@ -1,14 +1,11 @@
-# Disclosure Intelligence — Event Extraction v2
+# Disclosure Intelligence - Recovery v4
 
-This release fixes the biggest interpretation gap in the prior deep-parser build.
+This build fixes a zero-data regression introduced during the editorial UI iteration.
 
-## What changed
+## Core change
+SEC discovery now uses the official daily EDGAR master index as the primary source. The app filters the index to the target forms (4, 144, SC 13D/G, 8-K), processes a bounded batch sequentially, and only then enriches ticker-resolved records. The older current-filings Atom feed is retained as a fallback.
 
-- 8-K cards no longer stop at generic item labels such as "Material agreement".
-- The parser now attempts to classify the underlying event as equity financing, debt financing, acquisition/disposition, executive/board change, cybersecurity incident, bankruptcy/restructuring, listing/compliance issue, or other.
-- It extracts headline-worthy dollar figures, share/unit counts, security types, dates, and counterparties where the filing text exposes them.
-- Financing cards explain potential dilution instead of merely saying "material agreement".
-- Generic/unresolved 8-Ks are downgraded to SKIP/LOW INFO rather than receiving a reel recommendation.
-- Existing low-memory and ticker-required behavior is preserved.
+## Deployment
+Upload the contents of this folder to the root of the existing GitHub repository, replacing matching files. Keep the existing Render `SEC_USER_AGENT` environment variable. After Render shows the new commit as Live, hard refresh the site and click **Refresh market now** once.
 
-Upload all files to the repository root, replacing matching files. Keep the existing Render `SEC_USER_AGENT` environment variable.
+The low-memory single-worker architecture is preserved.

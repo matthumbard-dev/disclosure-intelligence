@@ -1,0 +1,4 @@
+UPLOAD THESE FILES TO THE ROOT OF YOUR EXISTING GITHUB REPOSITORY.
+Replace matching files, commit, and let Render redeploy.
+Keep SEC_USER_AGENT in Render unchanged.
+After Live: Ctrl+Shift+R, then click Refresh market now once.
