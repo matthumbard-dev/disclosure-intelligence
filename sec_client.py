@@ -275,7 +275,7 @@ def extract_submission_document(raw:bytes, form_hint:str)->bytes:
     return body.encode('utf-8','ignore') if body else raw
 
 def parse_form4(raw:bytes,filing:dict,ticker:str,cik:str)->list[dict]:
-    root=ET.fromstring(raw); issuer=_text(root,'issuer/issuerName') or filing.get('company',''); issuer_ticker=_text(root,'issuer/issuerTradingSymbol') or ticker
+    root=_parse_sec_xml(raw); issuer=_text(root,'issuer/issuerName') or filing.get('company',''); issuer_ticker=_text(root,'issuer/issuerTradingSymbol') or ticker
     owner=_text(root,'reportingOwner/reportingOwnerId/rptOwnerName'); rel=root.find('reportingOwner/reportingOwnerRelationship'); roles=[]
     if rel is not None:
         if _text(rel,'isDirector')=='1':roles.append('Director')
@@ -301,7 +301,7 @@ def parse_form4(raw:bytes,filing:dict,ticker:str,cik:str)->list[dict]:
     return out
 
 def parse_144(raw:bytes,filing:dict,ticker:str,cik:str)->dict:
-    root=ET.fromstring(raw); vals=_leaf_map(root)
+    root=_parse_sec_xml(raw); vals=_leaf_map(root)
     symbol=_first(vals,'issuerTradingSymbol','tradingSymbol','issuerSymbol','symbol').upper().strip(); symbol=re.sub(r'[^A-Z0-9.\-]','',symbol)
     issuer=_first(vals,'issuerName','nameOfIssuer','issuerInformationName') or filing.get('company','')
     actor=_first(vals,'nameOfPersonForWhoseAccount','personForWhoseAccount','sellerName','filerName','nameOfPersonForWhoseAccountTheSecuritiesAreToBeSold')
@@ -347,7 +347,7 @@ def parse_144(raw:bytes,filing:dict,ticker:str,cik:str)->dict:
 def parse_ownership(raw:bytes,filing:dict,ticker:str,cik:str)->dict:
     actor=''; pct=None; issuer=filing.get('company',''); symbol=ticker; text=''; details={}
     try:
-        root=ET.fromstring(raw); vals=_leaf_map(root); issuer=_first(vals,'nameOfIssuer','issuerName') or issuer; symbol=_first(vals,'issuerTradingSymbol','tradingSymbol') or symbol
+        root=_parse_sec_xml(raw); vals=_leaf_map(root); issuer=_first(vals,'nameOfIssuer','issuerName') or issuer; symbol=_first(vals,'issuerTradingSymbol','tradingSymbol') or symbol
         actor=_first(vals,'reportingPersonName','nameOfReportingPerson','reportingOwnerName','nameOfReportingPersons')
         pct=_float(_first(vals,'percentOfClass','percentageOfClass','percentClass','percentOfClassRepresentedByAmount'))
         shares=_float(_first(vals,'aggregateAmountBeneficiallyOwned','amountBeneficiallyOwned','aggregateAmountBeneficiallyOwnedByEachReportingPerson'))
@@ -577,7 +577,8 @@ def scan_market(client:SecClient,max_filings:int=32,feed_count:int=80,on_event=N
                 try:
                     produced=parse_bytes(raw)
                 except Exception as first_exc:
-                    _log('Direct parse FAILED form=%s accession=%s: %s: %s; trying fallback',form,e.get('accession',''),type(first_exc).__name__,first_exc)
+                    if parser_errors < 5 or attempted % 25 == 0:
+                        _log('Direct parse FAILED form=%s accession=%s: %s: %s; trying fallback',form,e.get('accession',''),type(first_exc).__name__,first_exc)
                     fb=fallback_raw()
                     if fb is not None: produced=parse_bytes(fb)
                     else: raise first_exc
@@ -588,7 +589,8 @@ def scan_market(client:SecClient,max_filings:int=32,feed_count:int=80,on_event=N
         except Exception as exc:
             parser_errors += 1
             if len(error_samples)<12: error_samples.append(f'parse {form} {e.get("accession","")}: {type(exc).__name__}: {exc}'[:300])
-            _log('Candidate FAILED form=%s accession=%s: %s: %s',form,e.get('accession',''),type(exc).__name__,exc)
+            if parser_errors <= 5 or attempted % 25 == 0:
+                _log('Candidate FAILED form=%s accession=%s: %s: %s',form,e.get('accession',''),type(exc).__name__,exc)
             continue
 
         for ev in produced:

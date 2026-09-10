@@ -1,0 +1,12 @@
+SEC parser call-site fix v8
+
+Root cause confirmed from Render logs:
+- The XML normalization helper existed, but parse_form4(), parse_144(), and the XML ownership path still called ET.fromstring(raw) directly.
+- This caused repeated 'XML or text declaration not at start of entity' and 'mismatched tag' failures.
+
+Fixes:
+1. Form 4 now always passes through _parse_sec_xml().
+2. Form 144 now always passes through _parse_sec_xml().
+3. XML 13D/13G ownership parsing now passes through _parse_sec_xml().
+4. Atom feed parsing is intentionally unchanged.
+5. Repetitive parse errors are sampled instead of logged for every filing; the final aggregate scan summary remains.

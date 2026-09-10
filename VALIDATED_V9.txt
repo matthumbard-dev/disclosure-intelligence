@@ -1,0 +1,10 @@
+Validated build v9
+
+Tests completed before packaging:
+- Python syntax compilation for all modules
+- clean Form 4 purchase parsing
+- wrapped SEC-style Form 4 sale parsing
+- Form 144 structured extraction
+- Schedule 13D ownership extraction
+
+The XML ownership parse path uses _parse_sec_xml for Form 4, 144, and ownership filings.
