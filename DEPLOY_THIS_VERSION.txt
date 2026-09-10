@@ -1,13 +1,14 @@
-Disclosure Intelligence - Reel Studio / ticker-required stable base
+Disclosure Intelligence - Story Cards update
 
-Upload the CONTENTS of this folder to the ROOT of your existing GitHub
-repository and replace files with matching names.
+This version changes the main disclosure section into plain-English story cards:
+- What happened
+- What it means
+- Important context
+- Market signal score
+- Separate reel/content score
+- Suggested 30-second reel headline
+- Direct SEC source link
 
-Keep your existing Render SEC_USER_AGENT environment variable.
-
-After GitHub commit:
-1. Wait for Render to redeploy.
-2. Confirm the latest commit is Live.
-3. Hard refresh the dashboard with Ctrl+Shift+R.
-
-This package preserves the low-memory architecture and ticker-required feed.
+Upload the CONTENTS of this folder to the ROOT of the existing GitHub repository.
+Replace matching files and commit. Render should redeploy automatically.
+Keep the existing SEC_USER_AGENT environment variable in Render.

@@ -34,3 +34,6 @@ SQLite on Render Free is not durable across redeploys/replacements. This version
 
 ## Ticker-required feed
 Investor-facing events are now displayed only when a valid exchange ticker can be resolved. Form 144 and Schedule 13D/G parsers prefer issuer trading symbols embedded in the filing and fall back to the SEC CIK-to-ticker reference map. Legacy unresolved rows are purged at startup.
+
+## Story-card update
+The main disclosure feed now translates normalized SEC events into plain-English interpretation using `story_builder.py`. This is deterministic presentation logic, not an AI claim generator: facts come from parsed filing fields, while the story layer explains transaction/form semantics and proposes a reel angle.

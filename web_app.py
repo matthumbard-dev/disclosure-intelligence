@@ -8,6 +8,7 @@ from db import read_events,recent_tickers,upsert_event,set_meta,get_meta,purge_d
 from sec_client import SecClient,scan_market
 from market_layers import price_snapshot,gdelt_news,cftc_cot,finra_short_interest,reddit_status,options_status,social_status
 from market_store import init_market,put_price,put_news,put_cot,read_market
+from story_builder import build_story
 
 BASE=Path(__file__).resolve().parent
 app=FastAPI(title='Disclosure Intelligence Low Memory')
@@ -92,7 +93,9 @@ def home(): return FileResponse(BASE/'index.html')
 @app.get('/api/events')
 def events(days:int=30):
     # Read-only: browsing the dashboard never starts collection work.
-    return read_events(max(1,min(days,365)),1200)
+    rows=read_events(max(1,min(days,365)),1200)
+    for row in rows: row['story']=build_story(row)
+    return rows
 
 @app.get('/api/market')
 def market():
