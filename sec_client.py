@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 import requests
 from bs4 import BeautifulSoup
 from scoring import score_event, band
+from event_extractor import extract_8k_event
 
 SEC_DATA='https://data.sec.gov'
 SEC_WWW='https://www.sec.gov'
@@ -267,7 +268,8 @@ def parse_8k(raw:bytes,filing:dict,ticker:str,cik:str)->dict:
         m=re.search(rf'Item\s+{re.escape(code)}\b\s*[.:\-]?\s*(.*?)(?=Item\s+\d\.\d{{2}}\b|SIGNATURES?\b|$)',plain,re.I|re.S)
         body=' '.join(m.group(1).split())[:1400] if m else ''
         sections.append({'code':code,'label':ITEM_LABELS.get(code,'8-K item'),'summary_text':body})
-    details={'item_codes':codes,'items':[ITEM_LABELS.get(c,'8-K item') for c in codes],'sections':sections}
+    event_facts=extract_8k_event(codes,sections)
+    details={'item_codes':codes,'items':[ITEM_LABELS.get(c,'8-K item') for c in codes],'sections':sections,'event_facts':event_facts}
     label=', '.join(ITEM_LABELS.get(c,c) for c in codes[:3])
     ev={**filing,'event_id':filing['accession'],'event_type':'material_event','ticker':ticker,'cik':cik,'actor':'','role':'','transaction_code':'','transaction_date':filing.get('report_date',''),'shares':None,'price':None,'value':None,'ownership_after':None,'detail':items,'details_json':details}
     ev['summary']='8-K: '+label if label else '8-K filed'

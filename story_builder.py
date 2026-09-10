@@ -124,16 +124,77 @@ def build_story(e:dict)->dict:
   content=min(98,(62 if is13d else 45)+score//3+(12 if purpose else 0)+(8 if e.get('ownership_after') else 0))
 
  elif form.startswith('8-K') or typ=='material_event':
-  codes=d.get('item_codes') or []; labels=d.get('items') or []; sections=d.get('sections') or []
-  top=labels[0] if labels else 'Material corporate event'; headline=f'{ticker}: {top}'
-  happened=f'{company} filed an 8-K reporting '+(', '.join(labels[:3]).lower() if labels else 'a corporate event')
-  meaning='An 8-K is an event report. The item number tells you what actually happened; different 8-K items can represent very different events.'
-  summaries=[_clip(s.get('summary_text'),260) for s in sections if s.get('summary_text')]
-  context=('Filing detail: '+summaries[0]) if summaries else ('Items reported: '+', '.join(codes) if codes else 'The filing item could not be resolved from the document.')
+  codes=d.get('item_codes') or []; labels=d.get('items') or []; sections=d.get('sections') or []; ef=d.get('event_facts') or {}
+  kind=ef.get('event_kind') or 'other'; event_label=ef.get('event_label') or (labels[0] if labels else 'Corporate event')
+  amt=ef.get('amount'); amt_text=_money(amt) if amt else ''; sh=_shares(ef.get('shares')); cp=ef.get('counterparty') or ''; securities=ef.get('securities') or ''; filing_summary=_clip(ef.get('summary'),520)
   facts=['Items: '+', '.join(f'{c} — {labels[i] if i<len(labels) else ""}' for i,c in enumerate(codes[:5]))] if codes else []
-  reel=f'{ticker} just reported {top.lower()} in an 8-K. Here is what the filing actually says.'
-  high={'Acquisition or disposition','Exit or disposal plan','Material impairment','Exchange listing/compliance event','Auditor/accountant change','Financial statements should no longer be relied upon','Change in control','Director/executive change or compensation event'}
-  content=min(94,38+score//3+(15 if top in high else 0)+(10 if summaries else 0))
+  if amt_text:facts.append('Disclosed amount: '+amt_text)
+  if sh:facts.append('Shares / units referenced: '+sh)
+  if cp:facts.append('Counterparty: '+cp)
+  if securities:facts.append('Securities: '+securities)
+  if ef.get('dates'):facts.append('Dates mentioned: '+', '.join(ef.get('dates')[:2]))
+
+  if kind=='financing':
+   headline=f'{ticker}: equity financing'+(f' of about {amt_text}' if amt_text else '')
+   happened=f'{company} disclosed a securities financing transaction'
+   if cp:happened+=f' with {cp}'
+   if amt_text:happened+=f' involving about {amt_text}'
+   if sh:happened+=f' and roughly {sh}'
+   if securities:happened+=f'. The filing references {securities}'
+   meaning='This is a capital-raising transaction, not an ordinary operating update. It can add cash to the company while potentially diluting existing shareholders if new equity or equity-linked securities are issued.'
+   context=ef.get('dilution_context') or filing_summary or 'The exact impact depends on the issue price, security terms, warrants/conversion features, and the company’s existing share count.'
+   reel=(f'{ticker} just disclosed a '+(amt_text+' ' if amt_text else '')+'financing deal'+(f' with {cp}' if cp else '')+'. Here is what shareholders need to know about the new securities and potential dilution.')
+   content=min(96,58+score//3+(12 if amt_text else 0)+(8 if sh or securities else 0)+(6 if cp else 0))
+  elif kind=='debt':
+   headline=f'{ticker}: new debt / credit financing'+(f' of about {amt_text}' if amt_text else '')
+   happened=f'{company} disclosed a debt or credit financing arrangement'+(f' of about {amt_text}' if amt_text else '')
+   if cp:happened+=f' with {cp}'
+   meaning='This changes the company’s financing structure. New borrowing can fund growth or liquidity needs but also adds interest expense, covenants, and repayment obligations.'
+   context=filing_summary or 'The important details are principal amount, interest rate, maturity, collateral and covenants.'
+   reel=f'{ticker} just took on '+(amt_text+' of ' if amt_text else '')+'new financing. Here is why the terms matter.'
+   content=min(92,52+score//3+(12 if amt_text else 0))
+  elif kind=='acquisition':
+   headline=f'{ticker}: acquisition / disposition announced'+(f' — {amt_text}' if amt_text else '')
+   happened=f'{company} disclosed an acquisition, asset sale, or business-combination event'+(f' involving about {amt_text}' if amt_text else '')
+   meaning='Acquisitions and dispositions can materially change revenue, assets, leverage and strategy. The price paid and financing method are often the key facts.'
+   context=filing_summary or 'Review the acquired/sold business, purchase price, financing and expected closing conditions.'
+   reel=f'{ticker} just disclosed a major acquisition or asset deal'+(f' worth about {amt_text}' if amt_text else '')+'. Here is what is changing.'
+   content=min(96,62+score//3+(12 if amt_text else 0))
+  elif kind=='leadership':
+   headline=f'{ticker}: executive / board change'
+   happened=f'{company} disclosed a director or executive leadership change.'
+   meaning='Leadership changes can matter when they involve the CEO, CFO, founder, board chair or an abrupt/unexplained departure.'
+   context=filing_summary or 'The reason for departure, successor and effective date determine how significant the change is.'
+   reel=f'{ticker} just disclosed a leadership change. Here is who is leaving or joining — and why it may matter.'
+   content=min(90,55+score//3+(10 if filing_summary else 0))
+  elif kind=='cyber':
+   headline=f'{ticker}: cybersecurity incident disclosed'
+   happened=f'{company} disclosed a cybersecurity incident in an 8-K.'
+   meaning='A material cyber incident can affect operations, customers, legal exposure and financial results.'
+   context=filing_summary
+   reel=f'{ticker} just disclosed a cybersecurity incident. Here is what the company says happened.'
+   content=min(96,70+score//3)
+  elif kind=='bankruptcy':
+   headline=f'{ticker}: bankruptcy / restructuring event'
+   happened=f'{company} disclosed a bankruptcy or restructuring event.'
+   meaning='This is a potentially severe capital-structure event and can materially affect common shareholders and creditors.'
+   context=filing_summary
+   reel=f'{ticker} just disclosed a bankruptcy or restructuring event. Here is what investors need to know.'
+   content=min(98,75+score//3)
+  elif kind=='listing':
+   headline=f'{ticker}: exchange listing / compliance issue'
+   happened=f'{company} disclosed an exchange-listing or compliance event.'
+   meaning='Listing deficiencies can create delisting risk if they are not cured within the allowed period.'
+   context=filing_summary
+   reel=f'{ticker} just disclosed a listing-compliance issue. Here is what could happen next.'
+   content=min(88,52+score//3)
+  else:
+   headline=f'{ticker}: {event_label}'
+   happened=f'{company} filed an 8-K reporting '+(', '.join(labels[:3]).lower() if labels else 'a corporate event')
+   meaning='The filing identifies an event, but the parser did not resolve enough transaction-specific facts to support a stronger interpretation.'
+   context=filing_summary or ('Items reported: '+', '.join(codes) if codes else 'The filing item could not be resolved from the document.')
+   reel=f'{ticker} filed an 8-K, but there is not enough structured information yet for a reliable 30-second story.'
+   content=min(35,20+score//5)
 
  else:
   meaning='The filing was collected, but the parser did not resolve a supported transaction/event type.';context='This should generally be skipped until the underlying event is parsed.';reel=f'{ticker} filed {form}.';content=5
