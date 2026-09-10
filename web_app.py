@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import FileResponse
-from db import read_events,recent_tickers,upsert_event,set_meta,get_meta,purge_demo
+from db import read_events,recent_tickers,upsert_event,set_meta,get_meta,purge_demo,purge_unresolved
 from sec_client import SecClient,scan_market
 from market_layers import price_snapshot,gdelt_news,cftc_cot,finra_short_interest,reddit_status,options_status,social_status
 from market_store import init_market,put_price,put_news,put_cot,read_market
@@ -82,7 +82,7 @@ def scheduler():
 
 @app.on_event('startup')
 def startup():
-    init_market(); purge_demo()
+    init_market(); purge_demo(); purge_unresolved()
     set_meta('boot_memory_mb',memory_mb())
     threading.Thread(target=scheduler,daemon=True,name='bounded-collector').start()
 

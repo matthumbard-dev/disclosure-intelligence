@@ -30,3 +30,7 @@ No paid Render upgrade should be necessary for this test.
 ## Important development limitation
 
 SQLite on Render Free is not durable across redeploys/replacements. This version is intended to prove stable low-memory ingestion. After stability is confirmed, move persistence to PostgreSQL/Supabase before accumulating historical data.
+
+
+## Ticker-required feed
+Investor-facing events are now displayed only when a valid exchange ticker can be resolved. Form 144 and Schedule 13D/G parsers prefer issuer trading symbols embedded in the filing and fall back to the SEC CIK-to-ticker reference map. Legacy unresolved rows are purged at startup.

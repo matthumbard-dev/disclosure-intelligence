@@ -38,7 +38,7 @@ def upsert_events(events):
 
 def read_events(days=30, limit=1200):
     with connect() as c:
-        rows=c.execute("SELECT * FROM events WHERE date(filed_at)>=date('now',?) ORDER BY filed_at DESC,score DESC LIMIT ?",(f'-{int(days)} day',int(limit))).fetchall()
+        rows=c.execute("SELECT * FROM events WHERE ticker IS NOT NULL AND TRIM(ticker)<>'' AND date(filed_at)>=date('now',?) ORDER BY filed_at DESC,score DESC LIMIT ?",(f'-{int(days)} day',int(limit))).fetchall()
     return [dict(r) for r in rows]
 
 def recent_tickers(days=14, limit=12):
@@ -54,6 +54,13 @@ def get_meta(k,default=''):
     with connect() as c:
         r=c.execute('SELECT value FROM meta WHERE key=?',(k,)).fetchone()
     return r[0] if r else default
+
+
+def purge_unresolved():
+    """Remove legacy rows that cannot be tied to a listed ticker."""
+    with connect() as c:
+        c.execute("DELETE FROM events WHERE ticker IS NULL OR TRIM(ticker)=''")
+        c.commit()
 
 def purge_demo():
     fake=('ACME','CLDF','NSTR','VBIO','HBR')

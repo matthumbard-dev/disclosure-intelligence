@@ -153,12 +153,17 @@ def parse_form4(raw:bytes,filing:dict,ticker:str,cik:str)->list[dict]:
 def parse_144(raw:bytes,filing:dict,ticker:str,cik:str)->dict:
     try: root=ET.fromstring(raw); vals=_all_values(root)
     except Exception: vals={}
+    # Form 144's filer CIK can belong to the selling person rather than the issuer.
+    # Prefer issuer-level fields embedded in the filing, then fall back to CIK mapping.
+    filing_symbol=_pick(vals,'issuertradingsymbol','tradingsymbol','issuersymbol','symbol').upper().strip()
+    filing_symbol=re.sub(r'[^A-Z0-9.\-]','',filing_symbol)
+    issuer=_pick(vals,'issuername','nameofissuer','issuerinformationname') or filing.get('company','')
     actor=_pick(vals,'nameofpersonforwhoseaccount','personforwhoseaccount','sellername','filername')
     shares=_float(_pick(vals,'noofunitssold','numberofsharestobesold','securitiestobesold'))
     value=_float(_pick(vals,'aggregatemarketvalue','marketvalue'))
     sale_date=_pick(vals,'approxsaledate','approximatedateofsale')
     broker=_pick(vals,'brokername')
-    ev={**filing,'event_id':filing['accession'],'event_type':'proposed_sale','ticker':ticker,'cik':cik,'actor':actor,'role':'Affiliate','transaction_code':'144','transaction_date':sale_date,'shares':shares,'price':None,'value':value,'ownership_after':None,'detail':broker}
+    ev={**filing,'event_id':filing['accession'],'event_type':'proposed_sale','company':issuer,'ticker':filing_symbol or ticker,'cik':cik,'actor':actor,'role':'Affiliate','transaction_code':'144','transaction_date':sale_date,'shares':shares,'price':None,'value':value,'ownership_after':None,'detail':broker}
     ev['summary']='Proposed affiliate sale'
     if shares:ev['summary']+=f' of {shares:,.0f} shares'
     if value:ev['summary']+=f' (~${value:,.0f})'
@@ -205,6 +210,14 @@ def _generic_event(e,ticker,cik,company):
     g={**e,'event_id':e.get('accession') or hashlib.sha1(str(e).encode()).hexdigest(),'event_type':'filing','ticker':ticker,'cik':cik,'company':company,'actor':'','role':'','transaction_code':'','transaction_date':e.get('report_date',''),'shares':None,'price':None,'value':None,'ownership_after':None,'detail':'','summary':f"{e.get('form','Filing')} filed"}
     sc,rs=score_event(g); g['score']=sc; g['score_band']=band(sc); g['reasons']='; '.join(rs); return g
 
+def _valid_ticker(value:str)->str:
+    t=(value or '').upper().strip()
+    # U.S. listed symbols are normally short alphanumeric strings, with . or - for classes.
+    if not t or len(t)>12 or not re.fullmatch(r'[A-Z0-9][A-Z0-9.\-]*',t):
+        return ''
+    return t
+
+
 def scan_market(client:SecClient,max_filings:int=32,feed_count:int=35,on_event=None)->list[dict]:
     """Bounded market scan for small-memory hosts.
 
@@ -232,7 +245,7 @@ def scan_market(client:SecClient,max_filings:int=32,feed_count:int=35,on_event=N
     events=[]
     for e in entries:
         cik=e.get('cik',''); info=by_cik.get(cik,{})
-        ticker=info.get('ticker',''); company=info.get('title') or e.get('company','')
+        ticker=_valid_ticker(info.get('ticker','')); company=info.get('title') or e.get('company','')
         e['company']=company; e.setdefault('report_date',''); e.setdefault('primary_document','')
         produced=[]
         try:
@@ -257,6 +270,11 @@ def scan_market(client:SecClient,max_filings:int=32,feed_count:int=35,on_event=N
         except Exception:
             produced=[_generic_event(e,ticker,cik,company)]
         for ev in produced:
+            ev['ticker']=_valid_ticker(ev.get('ticker',''))
+            # Investor-facing rule: no resolved ticker, no dashboard event.
+            # We skip it rather than presenting an issuer that cannot be acted on/searched.
+            if not ev['ticker']:
+                continue
             if on_event: on_event(ev)
             else: events.append(ev)
         if on_event:
