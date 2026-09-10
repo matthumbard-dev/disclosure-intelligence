@@ -1,6 +1,32 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Disclosure Intelligence</title>
 <style>
 :root{--bg:#08101e;--panel:#111a2b;--panel2:#17233a;--text:#f4f7ff;--muted:#93a4c0;--line:#263652;--accent:#7cb3ff;--green:#55dda7;--yellow:#ffd261;--red:#ff7d8a}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 90% 0,#18305b 0,#08101e 34%);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif}.shell{display:grid;grid-template-columns:240px 1fr;min-height:100vh}.sidebar{padding:24px 17px;border-right:1px solid var(--line);background:#070d19;position:sticky;top:0;height:100vh}.brand{font-size:20px;font-weight:850}.brand small{display:block;color:var(--muted);font-size:11px;font-weight:500;margin-top:6px}.live{display:inline-flex;align-items:center;gap:6px;margin:17px 0;padding:6px 9px;border:1px solid #234d43;border-radius:99px;color:var(--green);font-size:10px}.dot{width:7px;height:7px;border-radius:50%;background:var(--green)}.nav button{display:block;width:100%;border:0;background:transparent;color:var(--muted);text-align:left;padding:11px;border-radius:10px;margin:3px 0;font-weight:700;cursor:pointer}.nav button.active,.nav button:hover{background:var(--panel2);color:white}.sidebox{margin-top:28px;border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:14px}.k{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}.v{font-size:12px;margin:5px 0 12px}.refresh{border:0;background:var(--accent);padding:10px;width:100%;border-radius:9px;font-weight:800;cursor:pointer}.main{padding:28px 30px 60px;min-width:0}.top{display:flex;justify-content:space-between;gap:20px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.4px;color:var(--accent)}h1{margin:6px 0;font-size:31px}.sub{font-size:13px;color:var(--muted)}.status{border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:99px;padding:8px 11px;height:max-content;font-size:11px}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:22px 0}.metric{border:1px solid var(--line);background:var(--panel);padding:15px;border-radius:14px}.metric .n{font-size:26px;font-weight:850;margin-top:8px}.toolbar{display:grid;grid-template-columns:2fr 1fr 1fr .7fr;gap:9px;margin-bottom:14px}input,select{background:#0d1627;color:white;border:1px solid var(--line);padding:11px;border-radius:9px}.panel{border:1px solid var(--line);background:rgba(17,26,43,.92);border-radius:16px;margin-bottom:18px;overflow:hidden}.panelhead{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.panelhead h2{font-size:16px;margin:0}.panelhead span{font-size:10px;color:var(--muted)}.stories{padding:14px;display:grid;gap:13px}.story{border:1px solid var(--line);background:#0d1627;border-radius:14px;overflow:hidden}.storyTop{padding:15px 16px 12px;display:grid;grid-template-columns:78px 1fr auto;gap:14px;align-items:start}.scorebox{text-align:center;background:#111e33;border:1px solid var(--line);border-radius:12px;padding:9px 6px}.scorebox strong{font-size:21px;display:block}.scorebox small{color:var(--muted);font-size:9px}.headline{font-size:18px;font-weight:850;margin-bottom:5px}.meta{font-size:11px;color:var(--muted)}.reelBadge{font-size:10px;font-weight:850;padding:7px 9px;border-radius:99px;border:1px solid var(--line);white-space:nowrap}.strong{color:var(--green)}.possible{color:var(--yellow)}.skip{color:var(--muted)}.storyBody{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:1px;background:var(--line);border-top:1px solid var(--line)}.storyBody>div{background:#0e1829;padding:14px 16px}.label{font-size:9px;color:var(--accent);font-weight:850;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px}.storyBody p{margin:0;font-size:12px;line-height:1.5;color:#d8e2f5}.reel{margin:12px 16px 15px;border:1px solid #30517d;background:#101f36;border-radius:11px;padding:12px 14px}.reel .hook{font-size:15px;font-weight:800;line-height:1.35}.facts{margin:0 16px 12px;display:flex;flex-wrap:wrap;gap:7px}.fact{border:1px solid var(--line);background:#0b1423;border-radius:8px;padding:6px 8px;font-size:10px;color:#cbd8ee}.source{font-size:10px;margin-top:9px}.source a{color:var(--accent);text-decoration:none}.grid2{display:grid;grid-template-columns:1.25fr .75fr;gap:18px}.cards{padding:13px}.card{border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:9px;background:#0e1829}.ctop{display:flex;justify-content:space-between;gap:10px}.ctitle{font-weight:800}.card p{font-size:12px;color:#d8e2f5}.card small{color:var(--muted)}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:11px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--muted);font-size:9px;text-transform:uppercase}.ticker{font-weight:850}.tablewrap{overflow:auto}.empty{padding:25px;text-align:center;color:var(--muted)}.toast{display:none;position:fixed;right:18px;bottom:18px;background:#142138;border:1px solid var(--line);border-radius:11px;padding:11px 14px;font-size:12px}.spinner{display:inline-block;width:10px;height:10px;border:2px solid #526783;border-top-color:white;border-radius:50%;animation:r .8s linear infinite;margin-right:8px}@keyframes r{to{transform:rotate(360deg)}}@media(max-width:1000px){.shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.metrics{grid-template-columns:repeat(2,1fr)}.storyBody,.grid2{grid-template-columns:1fr}.toolbar{grid-template-columns:1fr}.storyTop{grid-template-columns:70px 1fr}.reelBadge{grid-column:2}}
+
+/* Editorial triage v3 */
+.editorial-section{margin:18px 0 26px}
+.editorial-heading{display:flex;align-items:end;justify-content:space-between;margin:0 0 10px}
+.editorial-heading h2{margin:0;font-size:18px}
+.editorial-heading span{font-size:11px;color:var(--muted,#8ea0bd)}
+.editorial-story{border:1px solid #29415f;border-radius:14px;background:#101c31;margin:0 0 12px;overflow:hidden}
+.editorial-story.hero{border-color:#3b5d85;box-shadow:0 0 0 1px rgba(100,170,255,.06)}
+.editorial-story-head{display:flex;gap:14px;align-items:flex-start;padding:16px}
+.editorial-rank{font-size:12px;color:#79b4ff;font-weight:800;min-width:28px}
+.editorial-title{font-size:18px;font-weight:800;line-height:1.25;margin-bottom:5px}
+.editorial-meta{font-size:11px;color:#93a7c6}
+.editorial-scores{margin-left:auto;text-align:right;white-space:nowrap;font-size:11px}
+.editorial-body{display:grid;grid-template-columns:1.15fr 1fr 1fr;border-top:1px solid #29415f}
+.editorial-cell{padding:13px 15px;border-right:1px solid #29415f;font-size:12px;line-height:1.5}
+.editorial-cell:last-child{border-right:0}
+.editorial-label{display:block;color:#73b2ff;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+.editorial-reel{margin:0 15px 15px;padding:12px 14px;border:1px solid #35547a;border-radius:10px;background:#12223b;font-size:13px;font-weight:700}
+.editorial-skip{font-size:11px;color:#8fa1bd}
+.editorial-compact{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid #263c59;border-radius:10px;margin-bottom:8px;background:#0f1a2d}
+.editorial-compact strong{min-width:90px}
+.editorial-compact .grow{flex:1}
+details.editorial-rest{border:1px solid #263c59;border-radius:12px;background:#0e192b;padding:0 14px}
+details.editorial-rest summary{cursor:pointer;padding:14px 0;font-weight:800}
+@media(max-width:900px){.editorial-body{grid-template-columns:1fr}.editorial-cell{border-right:0;border-bottom:1px solid #29415f}}
+
 </style></head><body><div class="shell"><aside class="sidebar"><div class="brand">Disclosure Intelligence<small>U.S. market disclosure monitor</small></div><div class="live"><span class="dot"></span> LIVE SEC DATA</div><div class="nav" id="nav"><button class="active" data-view="all">Overview</button><button data-view="insider">Insider activity</button><button data-view="ownership">Ownership</button><button data-view="sales">Proposed sales</button><button data-view="events">8-K events</button><button data-view="market">Market pulse</button><button data-view="news">News</button><button data-view="commodities">Commodities</button></div><div class="sidebox"><div class="k">Data source</div><div class="v">SEC EDGAR current filings</div><div class="k">Last market scan</div><div class="v" id="sideSync">Starting…</div><div class="k">Scan coverage</div><div class="v">Forms 4, 144, 13D/G, 8-K</div><button class="refresh" onclick="refreshMarket()">Refresh market now</button></div></aside><main class="main"><div class="top"><div><div class="eyebrow">DAILY MARKET INTELLIGENCE</div><h1>What actually happened?</h1><div class="sub">SEC filings read and translated into plain English — transaction details, context, significance, and a 30-second story angle without opening the filing.</div></div><div class="status" id="status">Starting…</div></div><div class="metrics"><div class="metric"><div class="k">Newest-day events</div><div class="n" id="mNew">0</div></div><div class="metric"><div class="k">High signal</div><div class="n" id="mHigh">0</div></div><div class="metric"><div class="k">Open-market buys</div><div class="n" id="mBuys">0</div></div><div class="metric"><div class="k">13D / 13G</div><div class="n" id="mOwn">0</div></div><div class="metric"><div class="k">Companies</div><div class="n" id="mCompanies">0</div></div></div><div class="toolbar"><input id="search" placeholder="Search ticker, company, insider, story…" oninput="render()"><select id="formFilter" onchange="render()"><option value="">All forms</option></select><select id="scoreFilter" onchange="render()"><option value="0">All signals</option><option value="80">80+ high signal</option><option value="60">60+ interesting</option><option value="40">40+ notable</option></select><select id="days" onchange="loadEvents()"><option value="1">Today</option><option value="7" selected>7 days</option><option value="30">30 days</option></select></div><section class="panel"><div class="panelhead"><h2 id="storyTitle">Today's most important disclosures</h2><span id="count"></span></div><div class="stories" id="stories"></div><div class="empty" id="empty">Waiting for current filings…</div></section><div class="grid2"><section class="panel"><div class="panelhead"><h2>Best reel candidates</h2><span>Ranked separately from market signal</span></div><div class="cards" id="reels"></div></section><section class="panel"><div class="panelhead"><h2>Most active companies</h2><span>Disclosure count</span></div><div class="cards" id="companies"></div></section></div><section class="panel" id="marketPanel"><div class="panelhead"><h2>Market pulse · price & volume</h2><span>Delayed EOD baseline</span></div><div class="tablewrap"><table><thead><tr><th>Ticker</th><th>Price</th><th>1D</th><th>5D</th><th>30D</th><th>Volume</th><th>Rel. volume</th><th>As of</th></tr></thead><tbody id="marketRows"></tbody></table></div></section><div class="grid2"><section class="panel"><div class="panelhead"><h2>Relevant news</h2><span>Original publishers</span></div><div class="cards" id="newsCards"></div></section><section class="panel"><div class="panelhead"><h2>CFTC commodity positioning</h2><span>Managed Money · weekly</span></div><div class="cards" id="cotCards"></div></section></div></main></div><div class="toast" id="toast"></div>
 <script>
 let EVENTS=[],MARKET={prices:[],news:[],commodities:[]},VIEW='all';const $=x=>document.getElementById(x);function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}function money(v){let n=Number(v);if(!n)return '—';return n>=1e9?'$'+(n/1e9).toFixed(1)+'B':n>=1e6?'$'+(n/1e6).toFixed(1)+'M':n>=1e3?'$'+(n/1e3).toFixed(0)+'K':'$'+n.toFixed(0)}function toast(m,b=false){$('toast').innerHTML=(b?'<span class="spinner"></span>':'')+esc(m);$('toast').style.display='block';if(!b)setTimeout(()=>$('toast').style.display='none',4500)}async function api(p,o){let r=await fetch(p,o),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.detail||'Request failed');return d}
@@ -15,4 +41,86 @@ async function loadStatus(){try{let s=await api('/api/status');$('sideSync').tex
 async function refreshMarket(){try{toast('SEC + market update started…',true);await api('/api/sync-market',{method:'POST'});setTimeout(loadEvents,9000)}catch(e){toast(e.message)}}async function loadMarket(){try{MARKET=await api('/api/market');renderMarket()}catch(e){console.log(e)}}function pct(v){if(v===null||v===undefined)return '—';let n=Number(v);return (n>0?'+':'')+n.toFixed(2)+'%'}
 function renderMarket(){let ps=MARKET.prices||[];$('marketRows').innerHTML=ps.map(p=>`<tr><td class="ticker">${esc(p.ticker)}</td><td>$${Number(p.price).toFixed(2)}</td><td>${pct(p.change_1d)}</td><td>${pct(p.change_5d)}</td><td>${pct(p.change_30d)}</td><td>${Number(p.volume||0).toLocaleString()}</td><td>${p.relative_volume?Number(p.relative_volume).toFixed(2)+'×':'—'}</td><td>${esc(p.asof)}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">Market enrichment is running…</td></tr>';let ns=(MARKET.news||[]).slice(0,20);$('newsCards').innerHTML=ns.map(n=>`<div class="card"><div class="ctop"><div class="ctitle">${esc(n.ticker)} · ${esc(n.domain)}</div></div><p><a style="color:var(--accent)" href="${esc(n.url)}" target="_blank">${esc(n.title)}</a></p><small>${esc(n.published)}</small></div>`).join('')||'<div class="empty">News enrichment is running…</div>';let cs=MARKET.commodities||[];$('cotCards').innerHTML=cs.map(c=>`<div class="card"><div class="ctop"><div class="ctitle">${esc(c.commodity)}</div><div class="${Number(c.weekly_net_change)>=0?'strong':'possible'}">${Number(c.managed_money_net).toLocaleString()}</div></div><p><b>Managed Money net position:</b> ${Number(c.managed_money_net).toLocaleString()} contracts<br><b>Weekly change:</b> ${(Number(c.weekly_net_change)>=0?'+':'')+Number(c.weekly_net_change).toLocaleString()}</p><small>This is futures positioning by money managers, not a direct buy/sell recommendation. ${esc(c.report_date)}</small></div>`).join('')||'<div class="empty">CFTC data is not available yet.</div>'}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');VIEW=b.dataset.view;$('storyTitle').textContent=b.textContent==='Overview'?"Today's most important disclosures":b.textContent;render()});loadEvents();setInterval(loadStatus,15000);
-</script></body></html>
+</script>
+<script>
+(function(){
+  function numFrom(s, re, d=0){ const m=(s||'').match(re); return m?parseInt(m[1],10):d; }
+  function triage(){
+    const heading=[...document.querySelectorAll('h2,h3,div')].find(e => /Today.?s most important disclosures/i.test(e.textContent||''));
+    if(!heading) return;
+    let container=heading.parentElement;
+    while(container && container.children.length<2) container=container.parentElement;
+    if(!container || container.dataset.editorialized) return;
+
+    // Locate story-like direct/descendant cards using score + reel text.
+    let cards=[...container.querySelectorAll('div')].filter(el=>{
+      const t=el.innerText||'';
+      return /SIGNAL\s*\/?\s*100/i.test(t) && /30-SECOND REEL|REEL HEADLINE|SKIP|POSSIBLE REEL/i.test(t)
+             && el.querySelectorAll('div').length>3;
+    });
+    // Keep only outermost qualifying cards.
+    cards=cards.filter(c=>!cards.some(o=>o!==c && o.contains(c)));
+    if(cards.length<2) return;
+
+    const items=cards.map((card,i)=>{
+      const t=card.innerText||'';
+      const signal=numFrom(t, /(\d+)\s*(?:SIGNAL\s*\/?\s*100|\/100)/i, 0);
+      const reel=numFrom(t, /(\d+)\s*\/\s*100\s*[-·]\s*(?:POSSIBLE|STRONG|REEL|CONTENT)/i, 0);
+      const low=/SKIP|LOW INFO|insufficient/i.test(t);
+      // Require actual specificity for a reel: numeric transaction/ownership facts OR a named concrete event.
+      const factual=/\$[\d,.]+[KMB]?|\b[\d,]{3,}\s+shares\b|\b\d+(?:\.\d+)?%\b|resign|appoint|acquir|financ|purchase agreement|cybersecurity|bankrupt|credit agreement/i.test(t);
+      const quality=(low?0:1)+(factual?2:0)+(signal>=60?1:0)+(reel>=70?1:0);
+      return {card,signal,reel,quality,i,t};
+    }).sort((a,b)=>(b.quality-a.quality)||(b.signal-a.signal)||(b.reel-a.reel));
+
+    const top=items.filter(x=>x.quality>=3).slice(0,5);
+    const topSet=new Set(top.map(x=>x.card));
+    const watch=items.filter(x=>!topSet.has(x.card) && x.quality>=1).slice(0,10);
+    const used=new Set([...top,...watch].map(x=>x.card));
+    const rest=items.filter(x=>!used.has(x.card));
+
+    const wrap=document.createElement('div');
+    wrap.className='editorial-section';
+    wrap.innerHTML='<div class="editorial-heading"><h2>🔥 Today’s best stories</h2><span>Ranked by specificity + market signal + reel potential</span></div>';
+    const topBox=document.createElement('div');
+    top.forEach((x,n)=>{
+      x.card.classList.add('editorial-story','hero');
+      const badge=document.createElement('div');
+      badge.style.cssText='padding:8px 14px 0;color:#79b4ff;font-size:11px;font-weight:800';
+      badge.textContent='#'+(n+1)+' EDITOR PICK';
+      x.card.insertBefore(badge,x.card.firstChild);
+      topBox.appendChild(x.card);
+    });
+    if(!top.length){
+      topBox.innerHTML='<div class="editorial-skip">No filing has enough extracted facts yet to earn an editor pick. That is intentional: vague filings are no longer promoted as reel candidates.</div>';
+    }
+    wrap.appendChild(topBox);
+
+    const wh=document.createElement('div');
+    wh.className='editorial-heading'; wh.style.marginTop='22px';
+    wh.innerHTML='<h2>👀 Worth watching</h2><span>Potentially relevant, but not yet a top story</span>';
+    wrap.appendChild(wh);
+    const wb=document.createElement('div');
+    watch.forEach(x=>{ x.card.classList.add('editorial-story'); wb.appendChild(x.card); });
+    if(!watch.length) wb.innerHTML='<div class="editorial-skip">Nothing else currently meets the watch threshold.</div>';
+    wrap.appendChild(wb);
+
+    const det=document.createElement('details');
+    det.className='editorial-rest';
+    det.innerHTML='<summary>📄 Everything else ('+rest.length+')</summary>';
+    const rb=document.createElement('div');
+    rest.forEach(x=>rb.appendChild(x.card));
+    det.appendChild(rb); wrap.appendChild(det);
+
+    const oldParent=container.parentElement;
+    oldParent.insertBefore(wrap,container.nextSibling);
+    container.style.display='none';
+    container.dataset.editorialized='1';
+  }
+  const obs=new MutationObserver(()=>triage());
+  obs.observe(document.body,{childList:true,subtree:true});
+  setTimeout(triage,800); setTimeout(triage,2500); setTimeout(triage,6000);
+})();
+</script>
+
+</body></html>

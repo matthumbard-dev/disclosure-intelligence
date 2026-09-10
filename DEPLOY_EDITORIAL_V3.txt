@@ -1,0 +1,12 @@
+Disclosure Intelligence Editorial Triage v3
+
+This build reorganizes the disclosure feed into:
+1. Today's Best Stories (max 5)
+2. Worth Watching
+3. Everything Else (collapsed)
+
+A filing must contain specific extracted facts before it can be promoted to an editor pick.
+This preserves the existing low-memory backend and event extraction.
+
+Upload all files to the ROOT of the existing GitHub repository and replace matching files.
+Keep SEC_USER_AGENT in Render. After deploy goes Live, hard refresh with Ctrl+Shift+R.
