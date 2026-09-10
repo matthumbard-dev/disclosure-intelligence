@@ -1,0 +1,18 @@
+Disclosure Intelligence v10 - frontend event refresh fix
+
+Root cause confirmed from Render logs:
+- SEC collector successfully saved 32 events.
+- Browser loaded while the database was still empty.
+- Frontend polled /api/status but did not reload /api/events when the collector finished.
+
+Fixes:
+1. Polls job status every 5 seconds.
+2. Detects running/queued -> idle transition and reloads events immediately.
+3. Refresh Market waits for scan completion before refreshing the disclosure feed.
+4. Safety refresh of disclosure data every 60 seconds.
+5. Existing validated SEC XML parser and low-memory collector are preserved.
+
+Validation performed:
+- all Python modules compile
+- embedded JavaScript passes node --check
+- isolated SQLite API data path returns a seeded ticker-resolved event
