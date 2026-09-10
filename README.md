@@ -1,27 +1,32 @@
-# Disclosure Intelligence — Live SEC Dashboard
+# Disclosure Intelligence - Low Memory Render Build
 
-This version is designed for Render and scans current SEC EDGAR filings market-wide.
+This build is specifically refactored for Render Free (512 MB RAM).
 
-## What it collects
-- Form 4 insider transactions, including transaction code, shares, price, value and role when available
-- Form 144 proposed affiliate sales
-- Schedule 13D / 13G beneficial-ownership filings
-- Form 8-K material-event filings
+## Changes from the previous build
+
+- Removed pandas/numpy entirely.
+- One Uvicorn worker only.
+- Dashboard requests are read-only and never trigger a scan.
+- One collector job at a time; SEC and market enrichment never overlap.
+- SEC work is bounded to 32 current filings per cycle by default.
+- Events are written to SQLite one at a time instead of holding a market-wide result set in memory.
+- Individual filing downloads are capped at 2 MB.
+- 8-K HTML is not deeply parsed in this low-memory build; it is retained as a filing-level event.
+- Price/news enrichment is limited to 10 recent high-signal tickers per cycle.
+- News is limited to 3 results per ticker.
+- Demo tickers are automatically purged at startup.
+- `/health` and `/api/status` expose process peak RSS so memory can be observed on Render.
 
 ## Render settings
-Build command:
-`pip install -r requirements.txt`
+
+Keep your existing `SEC_USER_AGENT` environment variable.
 
 Start command:
-`uvicorn web_app:app --host 0.0.0.0 --port $PORT`
 
-Environment variable:
-`SEC_USER_AGENT=Your Name your-email@example.com`
+`uvicorn web_app:app --host 0.0.0.0 --port $PORT --workers 1`
 
-## Updating an existing GitHub/Render deployment
-Upload/replace these files in the repository root and commit them. Render auto-deploys from the main branch.
+No paid Render upgrade should be necessary for this test.
 
-The app automatically begins a SEC scan when it starts, checks for stale data when the dashboard is opened, and refreshes approximately every 30 minutes while the Render instance is awake.
+## Important development limitation
 
-## Important limitation
-Render's free web-service filesystem is ephemeral. This version repopulates current SEC data automatically after a restart, so it works as a live dashboard, but long-term historical storage should be moved to PostgreSQL in the next infrastructure step.
+SQLite on Render Free is not durable across redeploys/replacements. This version is intended to prove stable low-memory ingestion. After stability is confirmed, move persistence to PostgreSQL/Supabase before accumulating historical data.

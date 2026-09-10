@@ -38,9 +38,21 @@ class SecClient:
         return by_ticker,by_cik
     def submissions(self,cik:str):
         return self._get(f'{SEC_DATA}/submissions/CIK{str(cik).zfill(10)}.json').json()
-    def filing_document(self,cik:str,accession:str,primary:str):
+    def filing_document(self,cik:str,accession:str,primary:str,max_bytes:int=2000000):
         url=f"{SEC_WWW}/Archives/edgar/data/{int(cik)}/{accession.replace('-','')}/{primary}"
-        return self._get(url).content
+        wait=self.min_interval-(time.time()-self._last)
+        if wait>0: time.sleep(wait)
+        r=self.s.get(url,timeout=30,stream=True); self._last=time.time(); r.raise_for_status()
+        chunks=[]; total=0
+        try:
+            for chunk in r.iter_content(65536):
+                if not chunk: continue
+                total += len(chunk)
+                if total>max_bytes: break
+                chunks.append(chunk)
+            return b''.join(chunks)
+        finally:
+            r.close()
     def current_feed(self,form:str,start:int=0,count:int=100):
         q=urlencode({'action':'getcurrent','type':form,'owner':'include','start':start,'count':count,'output':'atom'})
         return self._get(f'{CURRENT}?{q}').content
@@ -188,46 +200,76 @@ def parse_8k(raw:bytes,filing:dict,ticker:str,cik:str)->dict:
     if any(x in items for x in ['1.01','2.01','3.02','4.01','5.02']):sc=min(100,sc+8);rs.append('higher-impact 8-K item')
     ev['score']=sc;ev['score_band']=band(sc);ev['reasons']='; '.join(rs);return ev
 
-def scan_market(client:SecClient,pages_per_form:dict|None=None)->list[dict]:
-    pages_per_form=pages_per_form or {'4':3,'144':1,'SC 13D':1,'SC 13D/A':1,'SC 13G':1,'SC 13G/A':1,'8-K':2}
-    _,by_cik=client.ticker_maps(); raw_entries=[]
-    for form,pages in pages_per_form.items():
-        for p in range(pages):
-            try: raw_entries.extend(parse_atom(client.current_feed(form,p*100,100),form))
-            except Exception: break
-    # de-duplicate and prioritize newest/high signal forms
-    seen=set(); entries=[]
-    for e in raw_entries:
-        key=(e.get('accession'),e.get('form'))
-        if not e.get('accession') or key in seen:continue
-        seen.add(key);entries.append(e)
-    events=[]; sub_cache={}
-    for e in entries:
-        cik=e.get('cik',''); info=by_cik.get(cik,{}); ticker=info.get('ticker',''); company=info.get('title') or e.get('company','')
-        e['company']=company; e.setdefault('report_date',''); e.setdefault('primary_document','')
-        if not cik:
-            sc,rs=score_event(e);e.update({'event_id':e['accession'],'event_type':'filing','ticker':'','actor':'','role':'','transaction_code':'','transaction_date':'','shares':None,'price':None,'value':None,'ownership_after':None,'summary':f"{e['form']} filed",'score':sc,'score_band':band(sc),'reasons':'; '.join(rs),'detail':''});events.append(e);continue
+
+def _generic_event(e,ticker,cik,company):
+    g={**e,'event_id':e.get('accession') or hashlib.sha1(str(e).encode()).hexdigest(),'event_type':'filing','ticker':ticker,'cik':cik,'company':company,'actor':'','role':'','transaction_code':'','transaction_date':e.get('report_date',''),'shares':None,'price':None,'value':None,'ownership_after':None,'detail':'','summary':f"{e.get('form','Filing')} filed"}
+    sc,rs=score_event(g); g['score']=sc; g['score_band']=band(sc); g['reasons']='; '.join(rs); return g
+
+def scan_market(client:SecClient,max_filings:int=32,feed_count:int=35,on_event=None)->list[dict]:
+    """Bounded market scan for small-memory hosts.
+
+    Only one current-feed page is requested per form, at most max_filings filings are
+    enriched, and each filing is parsed/written independently by the caller.
+    """
+    _,by_cik=client.ticker_maps()
+    entries=[]; seen=set()
+    for form in FORMS:
         try:
-            if cik not in sub_cache:sub_cache[cik]=client.submissions(cik)
-            meta=_find_primary(sub_cache[cik],e['accession']) or {}
-            e.update(meta); primary=e.get('primary_document','')
-            raw=client.filing_document(cik,e['accession'],primary) if primary else b''
-            form=e['form']
-            if form in {'4','4/A'} and b'<ownershipDocument' in raw[:4000]: events.extend(parse_form4(raw,e,ticker,cik)); continue
-            if form=='144':events.append(parse_144(raw,e,ticker,cik));continue
-            if form.startswith('SC 13'):events.append(parse_ownership(raw,e,ticker,cik));continue
-            if form.startswith('8-K'):events.append(parse_8k(raw,e,ticker,cik));continue
+            raw=client.current_feed(form,0,feed_count)
+            batch=parse_atom(raw,form)
+            del raw
         except Exception:
-            pass
-        generic={**e,'event_id':e['accession'],'event_type':'filing','ticker':ticker,'cik':cik,'actor':'','role':'','transaction_code':'','transaction_date':e.get('report_date',''),'shares':None,'price':None,'value':None,'ownership_after':None,'detail':'','summary':f"{e['form']} filed"}
-        sc,rs=score_event(generic);generic['score']=sc;generic['score_band']=band(sc);generic['reasons']='; '.join(rs);events.append(generic)
-    # cluster-buy enhancement
+            continue
+        for e in batch:
+            key=e.get('accession')
+            if key and key not in seen:
+                seen.add(key); entries.append(e)
+        del batch
+    # Forms most likely to yield structured signals first; bounded total work.
+    priority={'4':0,'144':1,'SC 13D':2,'SC 13D/A':3,'SC 13G':4,'SC 13G/A':5,'8-K':6}
+    entries.sort(key=lambda x:(priority.get(x.get('form'),9),x.get('filed_at','')))
+    entries=entries[:max_filings]
+    events=[]
+    for e in entries:
+        cik=e.get('cik',''); info=by_cik.get(cik,{})
+        ticker=info.get('ticker',''); company=info.get('title') or e.get('company','')
+        e['company']=company; e.setdefault('report_date',''); e.setdefault('primary_document','')
+        produced=[]
+        try:
+            if not cik:
+                produced=[_generic_event(e,ticker,cik,company)]
+            elif e.get('form')=='8-K':
+                # 8-Ks can be very large. Keep them as filing-level events in the
+                # low-memory collector rather than parsing multi-MB HTML in RAM.
+                produced=[_generic_event(e,ticker,cik,company)]
+            else:
+                sub=client.submissions(cik)
+                meta=_find_primary(sub,e['accession']) or {}
+                del sub
+                e.update(meta); primary=e.get('primary_document','')
+                raw=client.filing_document(cik,e['accession'],primary) if primary else b''
+                form=e.get('form','')
+                if form in {'4','4/A'} and b'<ownershipDocument' in raw[:5000]: produced=parse_form4(raw,e,ticker,cik)
+                elif form=='144': produced=[parse_144(raw,e,ticker,cik)]
+                elif form.startswith('SC 13'): produced=[parse_ownership(raw,e,ticker,cik)]
+                else: produced=[_generic_event(e,ticker,cik,company)]
+                del raw
+        except Exception:
+            produced=[_generic_event(e,ticker,cik,company)]
+        for ev in produced:
+            if on_event: on_event(ev)
+            else: events.append(ev)
+        if on_event:
+            del produced
+    if on_event:
+        return []
+    # Small batch cluster-buy enhancement.
     buys={}
     for ev in events:
-        if ev.get('event_type')=='insider_transaction' and ev.get('transaction_code')=='P':buys.setdefault(ev.get('ticker',''),[]).append(ev)
+        if ev.get('event_type')=='insider_transaction' and ev.get('transaction_code')=='P':
+            buys.setdefault(ev.get('ticker',''),[]).append(ev)
     for t,arr in buys.items():
-        actors={x.get('actor') for x in arr if x.get('actor')}
-        if t and len(actors)>=2:
+        if t and len({x.get('actor') for x in arr if x.get('actor')})>=2:
             for ev in arr:
-                ev['score']=min(100,int(ev.get('score',0))+10);ev['score_band']=band(ev['score']);ev['reasons']=(ev.get('reasons','')+'; multiple insiders buying in current scan').strip('; ')
+                ev['score']=min(100,int(ev.get('score',0))+10); ev['score_band']=band(ev['score']); ev['reasons']=(ev.get('reasons','')+'; multiple insiders buying in current scan').strip('; ')
     return events
