@@ -1,0 +1,13 @@
+Disclosure Intelligence - Reel Studio / ticker-required stable base
+
+Upload the CONTENTS of this folder to the ROOT of your existing GitHub
+repository and replace files with matching names.
+
+Keep your existing Render SEC_USER_AGENT environment variable.
+
+After GitHub commit:
+1. Wait for Render to redeploy.
+2. Confirm the latest commit is Live.
+3. Hard refresh the dashboard with Ctrl+Shift+R.
+
+This package preserves the low-memory architecture and ticker-required feed.
