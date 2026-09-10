@@ -1,14 +1,13 @@
-Disclosure Intelligence - Story Cards update
+DISCLOSURE INTELLIGENCE - DEEP PARSER VERSION
 
-This version changes the main disclosure section into plain-English story cards:
-- What happened
-- What it means
-- Important context
-- Market signal score
-- Separate reel/content score
-- Suggested 30-second reel headline
-- Direct SEC source link
+This version reads the underlying SEC filing and stores structured facts for the dashboard.
+Upload the CONTENTS of this folder to the ROOT of the existing GitHub repository and replace matching files.
+Keep the existing Render SEC_USER_AGENT environment variable.
 
-Upload the CONTENTS of this folder to the ROOT of the existing GitHub repository.
-Replace matching files and commit. Render should redeploy automatically.
-Keep the existing SEC_USER_AGENT environment variable in Render.
+After commit:
+1. Wait for Render to deploy the new commit.
+2. Confirm it is Live.
+3. Hard-refresh the site with Ctrl+Shift+R.
+4. Click Refresh market now once to re-ingest current filings with the new deep parsers.
+
+IMPORTANT: Older database rows were parsed by earlier code and may not contain deep details. New/reprocessed rows will.
