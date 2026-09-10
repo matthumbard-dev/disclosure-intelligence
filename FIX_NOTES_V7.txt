@@ -1,0 +1,14 @@
+SEC XML parser fix v7
+
+Render logs identified the failure:
+- 'XML or text declaration not at start of entity'
+- 'mismatched tag'
+
+This build normalizes SEC ownership XML before ElementTree parsing:
+1. strips BOM/leading wrapper text,
+2. isolates <ownershipDocument> from SEC HTML/submission wrappers,
+3. removes embedded XML declarations,
+4. repairs bare ampersands/common HTML break tags,
+5. keeps the existing instrumented logging.
+
+Upload all files to the existing GitHub repo root and replace matching files.

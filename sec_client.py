@@ -1,6 +1,47 @@
 from __future__ import annotations
 import re, time, hashlib, json, logging, traceback
 import xml.etree.ElementTree as ET
+
+import html as _html
+
+def _clean_sec_xml_payload(payload):
+    """Normalize SEC ownership XML embedded in HTML/submission wrappers."""
+    if payload is None:
+        return ""
+    if isinstance(payload, bytes):
+        payload = payload.decode("utf-8", errors="replace")
+    text = str(payload).lstrip("\ufeff \t\r\n")
+    # If a SEC submission/document wrapper was returned, isolate ownership XML.
+    starts = [p for p in (text.find("<ownershipDocument"), text.find("<?xml")) if p >= 0]
+    if starts:
+        start = min(starts)
+        # Prefer ownershipDocument start if XML declaration occurs in wrapper noise.
+        od = text.find("<ownershipDocument")
+        if od >= 0:
+            start = od
+        end = text.find("</ownershipDocument>", start)
+        if end >= 0:
+            text = text[start:end + len("</ownershipDocument>")]
+        else:
+            text = text[start:]
+    # XML declarations are illegal after any preceding wrapper/content.
+    text = re.sub(r"<\?xml[^>]*\?>", "", text, flags=re.I).strip()
+    # SEC ownership XML occasionally contains HTML-ish entities in text fields.
+    text = text.replace("&nbsp;", " ")
+    # Escape bare ampersands while preserving legal XML entities.
+    text = re.sub(r"&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9A-Fa-f]+;)", "&amp;", text)
+    return text
+
+def _parse_sec_xml(payload):
+    cleaned = _clean_sec_xml_payload(payload)
+    try:
+        return ET.fromstring(cleaned)
+    except ET.ParseError:
+        # Last-resort repair for common SEC XHTML line-break tags inside text.
+        repaired = re.sub(r"<br\s*>", "<br/>", cleaned, flags=re.I)
+        repaired = re.sub(r"<hr\s*>", "<hr/>", repaired, flags=re.I)
+        return ET.fromstring(repaired)
+
 from dataclasses import dataclass
 from html import unescape
 from urllib.parse import urlencode
