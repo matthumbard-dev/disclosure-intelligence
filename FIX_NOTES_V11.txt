@@ -1,0 +1,16 @@
+Disclosure Intelligence v11 - Live Page Update Fix
+
+Validated fixes:
+- API responses for /, /api/events, /api/status, /api/market are explicitly no-cache.
+- Browser fetches use cache:'no-store' and cache-busting timestamps for events.
+- Collector publishes current_saved_count after every successfully saved event.
+- Frontend polls status every 2.5 seconds and re-fetches events whenever saved count changes.
+- Disclosure refresh no longer waits for market/news enrichment to complete.
+- Safety event refresh runs every 15 seconds.
+
+Local validation performed:
+- All Python files compile.
+- Embedded JavaScript passes Node syntax check.
+- Test SQLite event returned via /api/events?days=7.
+- API response includes no-store/no-cache headers.
+- Story builder returned a complete ticker-resolved story card.

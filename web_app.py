@@ -2,7 +2,7 @@ from __future__ import annotations
 import gc, os, threading, time, resource, logging, json, traceback
 from datetime import datetime, timezone
 from pathlib import Path
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Response
 from fastapi.responses import FileResponse
 from db import read_events,recent_tickers,upsert_event,set_meta,get_meta,purge_demo,purge_unresolved
 from sec_client import SecClient,scan_market
@@ -35,13 +35,14 @@ def sync_sec_bounded():
     if not ua or '@' not in ua:
         msg='SEC_USER_AGENT is not configured on the server.'
         set_meta('last_error',msg); set_meta('sync_status','error'); log(msg); return 0
-    set_meta('sync_status','syncing'); set_meta('sync_stage','starting'); set_meta('last_error',''); set_meta('memory_before_sec',memory_mb())
+    set_meta('sync_status','syncing'); set_meta('sync_stage','starting'); set_meta('last_error',''); set_meta('current_saved_count','0'); set_meta('memory_before_sec',memory_mb())
     count=0
     try:
         client=SecClient(ua)
         def save_one(ev):
             nonlocal count
             upsert_event(ev); count+=1
+            set_meta('current_saved_count',count); set_meta('last_partial_update',now_iso())
             set_meta('sync_stage',f'saved {count} usable events')
         batch=int(os.getenv('SEC_BATCH_SIZE','32')); feed=int(os.getenv('SEC_FEED_COUNT','80'))
         log('SEC scan calling scan_market batch=%d feed=%d peak_mem=%.1fMB',batch,feed,memory_mb())
@@ -102,6 +103,15 @@ def scheduler():
         time.sleep(1800)
         if stale('last_sync',25): full_cycle()
 
+@app.middleware('http')
+async def no_cache_api(request, call_next):
+    response = await call_next(request)
+    if request.url.path == '/' or request.url.path.startswith('/api/'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
+
 @app.on_event('startup')
 def startup():
     init_market(); purge_demo(); purge_unresolved()
@@ -135,7 +145,7 @@ def status():
     import json
     try: scan_stats=json.loads(get_meta('last_scan_stats','{}') or '{}')
     except Exception: scan_stats={}
-    return {'last_sync':get_meta('last_sync'),'last_count':get_meta('last_count','0'),'sync_status':get_meta('sync_status','idle'),'sync_stage':get_meta('sync_stage','idle'),'job_started':get_meta('job_started',''),'last_error':get_meta('last_error',''),'scan_stats':scan_stats,'layer_sync':get_meta('layer_sync'),'layer_status':get_meta('layer_status','idle'),'job_status':get_meta('job_status','idle'),'memory_mb':memory_mb(),'boot_memory_mb':get_meta('boot_memory_mb',''),'memory_after_sec':get_meta('memory_after_sec',''),'memory_after_layers':get_meta('memory_after_layers','')}
+    return {'last_sync':get_meta('last_sync'),'last_count':get_meta('last_count','0'),'sync_status':get_meta('sync_status','idle'),'sync_stage':get_meta('sync_stage','idle'),'job_started':get_meta('job_started',''),'last_error':get_meta('last_error',''),'scan_stats':scan_stats,'layer_sync':get_meta('layer_sync'),'layer_status':get_meta('layer_status','idle'),'job_status':get_meta('job_status','idle'),'current_saved_count':get_meta('current_saved_count','0'),'last_partial_update':get_meta('last_partial_update',''),'memory_mb':memory_mb(),'boot_memory_mb':get_meta('boot_memory_mb',''),'memory_after_sec':get_meta('memory_after_sec',''),'memory_after_layers':get_meta('memory_after_layers','')}
 
 @app.post('/api/sync-market')
 def sync():
