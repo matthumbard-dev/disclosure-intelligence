@@ -1,24 +1,27 @@
-# Disclosure Intelligence — browser edition
+# Disclosure Intelligence — Live SEC Dashboard
 
-## Easiest way on Windows
+This version is designed for Render and scans current SEC EDGAR filings market-wide.
 
-1. Extract this ZIP to a normal folder.
-2. Double-click **START_DASHBOARD.bat**.
-3. On the first launch, Windows prepares the local app. After that, the dashboard opens automatically in your normal web browser.
-4. Use **Load demo data** to explore immediately.
-5. For live SEC data, enter an SEC contact string such as `Your Name you@example.com`, enter your watchlist, and click **Sync SEC now**.
+## What it collects
+- Form 4 insider transactions, including transaction code, shares, price, value and role when available
+- Form 144 proposed affiliate sales
+- Schedule 13D / 13G beneficial-ownership filings
+- Form 8-K material-event filings
 
-The dashboard runs only on your computer at `http://127.0.0.1:8765`. Closing the black launcher window stops it.
+## Render settings
+Build command:
+`pip install -r requirements.txt`
 
-## What this MVP currently covers
+Start command:
+`uvicorn web_app:app --host 0.0.0.0 --port $PORT`
 
-- SEC Forms 3, 4, 5
-- Form 144 alerts
-- Schedules 13D / 13G
-- Form 8-K alerts
-- Structured Form 4 insider transaction extraction
-- Signal scoring and daily digest
-- Watchlist-based SEC synchronization
-- Direct links to primary SEC filings
+Environment variable:
+`SEC_USER_AGENT=Your Name your-email@example.com`
 
-Signal scores are triage heuristics, not investment recommendations.
+## Updating an existing GitHub/Render deployment
+Upload/replace these files in the repository root and commit them. Render auto-deploys from the main branch.
+
+The app automatically begins a SEC scan when it starts, checks for stale data when the dashboard is opened, and refreshes approximately every 30 minutes while the Render instance is awake.
+
+## Important limitation
+Render's free web-service filesystem is ephemeral. This version repopulates current SEC data automatically after a restart, so it works as a live dashboard, but long-term historical storage should be moved to PostgreSQL in the next infrastructure step.
