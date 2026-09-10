@@ -38,7 +38,10 @@ def sync_sec_bounded():
             nonlocal count
             upsert_event(ev); count+=1
         # Hard bounds are deliberate for Render Free (512 MB).
-        scan_market(client,max_filings=int(os.getenv('SEC_BATCH_SIZE','32')),feed_count=35,on_event=save_one)
+        scan_market(client,max_filings=int(os.getenv('SEC_BATCH_SIZE','32')),feed_count=int(os.getenv('SEC_FEED_COUNT','80')),on_event=save_one)
+        stats=getattr(client,'last_scan_stats',{}) or {}
+        import json
+        set_meta('last_scan_stats',json.dumps(stats,separators=(',',':')))
         set_meta('last_sync',now_iso()); set_meta('last_count',count); set_meta('sync_status','idle')
         return count
     except Exception as e:
@@ -109,7 +112,11 @@ def connectors():
 
 @app.get('/api/status')
 def status():
-    return {'last_sync':get_meta('last_sync'),'last_count':get_meta('last_count','0'),'sync_status':get_meta('sync_status','idle'),'last_error':get_meta('last_error',''),'layer_sync':get_meta('layer_sync'),'layer_status':get_meta('layer_status','idle'),'job_status':get_meta('job_status','idle'),'memory_mb':memory_mb(),'boot_memory_mb':get_meta('boot_memory_mb',''),'memory_after_sec':get_meta('memory_after_sec',''),'memory_after_layers':get_meta('memory_after_layers','')}
+    
+    import json
+    try: scan_stats=json.loads(get_meta('last_scan_stats','{}') or '{}')
+    except Exception: scan_stats={}
+    return {'last_sync':get_meta('last_sync'),'last_count':get_meta('last_count','0'),'sync_status':get_meta('sync_status','idle'),'last_error':get_meta('last_error',''),'scan_stats':scan_stats,'layer_sync':get_meta('layer_sync'),'layer_status':get_meta('layer_status','idle'),'job_status':get_meta('job_status','idle'),'memory_mb':memory_mb(),'boot_memory_mb':get_meta('boot_memory_mb',''),'memory_after_sec':get_meta('memory_after_sec',''),'memory_after_layers':get_meta('memory_after_layers','')}
 
 @app.post('/api/sync-market')
 def sync(background_tasks:BackgroundTasks):

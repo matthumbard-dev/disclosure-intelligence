@@ -1,0 +1,11 @@
+Disclosure Intelligence Recovery v5
+
+Key fixes:
+- Intraday SEC current feeds + latest completed SEC daily index are MERGED.
+- The 32-event cap now applies to SUCCESSFULLY PARSED, TICKER-RESOLVED events, not the first 32 candidates.
+- Scanner will inspect up to 256 candidates to find 32 usable events.
+- Filing-directory index fallback finds the primary filing document when submissions metadata does not.
+- Current-feed CIK extraction has additional fallbacks.
+- Visible scan diagnostics show attempts, parse failures, no-ticker and no-document counts.
+
+Deploy: upload all files to the root of the existing GitHub repo, replace matching files, commit, wait for Render Live, hard refresh, then click Refresh market now once.

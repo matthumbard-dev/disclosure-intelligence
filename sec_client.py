@@ -14,7 +14,7 @@ SEC_DATA='https://data.sec.gov'
 SEC_WWW='https://www.sec.gov'
 SEC_TICKERS='https://www.sec.gov/files/company_tickers.json'
 CURRENT='https://www.sec.gov/cgi-bin/browse-edgar'
-FORMS=['4','144','SC 13D','SC 13D/A','SC 13G','SC 13G/A','8-K']
+FORMS=['4','4/A','144','SC 13D','SC 13D/A','SC 13G','SC 13G/A','8-K','8-K/A']
 
 @dataclass
 class SecClient:
@@ -48,6 +48,25 @@ class SecClient:
                 chunks.append(chunk)
             return b''.join(chunks)
         finally:r.close()
+    def filing_index(self,cik:str,accession:str):
+        base=f"{SEC_WWW}/Archives/edgar/data/{int(cik)}/{accession.replace('-','')}"
+        return self._get(base+'/index.json').json()
+
+    def primary_from_index(self,cik:str,accession:str,form_hint:str=''):
+        try:
+            data=self.filing_index(cik,accession)
+            items=(data.get('directory') or {}).get('item') or []
+            names=[str(x.get('name','')) for x in items if isinstance(x,dict)]
+            # Prefer XML ownership/Form 144 documents, then HTML filing docs.
+            xml=[n for n in names if n.lower().endswith('.xml') and not any(x in n.lower() for x in ('_cal.xml','_def.xml','_lab.xml','_pre.xml','filingsummary.xml','metalinks'))]
+            html=[n for n in names if n.lower().endswith(('.htm','.html')) and 'index' not in n.lower()]
+            if form_hint in {'4','4/A','144'} and xml:
+                # XML primary docs are usually small and contain the structured filing.
+                return sorted(xml,key=lambda n:(0 if ('form4' in n.lower() or 'primary' in n.lower()) else 1,len(n)))[0]
+            return (html or xml or [''])[0]
+        except Exception:
+            return ''
+
     def current_feed(self,form:str,start:int=0,count:int=100):
         q=urlencode({'action':'getcurrent','type':form,'owner':'include','start':start,'count':count,'output':'atom'})
         return self._get(f'{CURRENT}?{q}').content
@@ -130,6 +149,15 @@ def parse_atom(raw:bytes,form_hint:str)->list[dict]:
             m=re.search(r'(\d{10}-\d{2}-\d{6})',href); acc=m.group(1) if m else ''
         cik=''; m=re.search(r'/data/(\d+)/',href)
         if m:cik=m.group(1).zfill(10)
+        if not cik:
+            m=re.search(r'[?&]CIK=(\d+)',href,re.I)
+            if m:cik=m.group(1).zfill(10)
+        if not cik:
+            m=re.search(r'CIK[^0-9]{0,20}(\d{6,10})',summary,re.I)
+            if m:cik=m.group(1).zfill(10)
+        if not cik:
+            m=re.search(r'\((\d{6,10})\)',title)
+            if m:cik=m.group(1).zfill(10)
         filed=updated; m=re.search(r'Filed:\s*</b>\s*([0-9-]+)',summary,re.I)
         if m:filed=m.group(1)
         company=re.sub(r'^.*?\s+-\s+','',title).strip(); company=re.sub(r'\s+\(\d{10}\).*','',company).strip() or title
@@ -319,51 +347,77 @@ def parse_master_index(text:str, target_forms=None):
         })
     return rows
 
-def recent_index_entries(client:SecClient, days_back:int=5):
+def recent_index_entries(client:SecClient, days_back:int=7):
+    """Return the most recent *completed* daily index.
+
+    SEC daily index files are generally created after the filing day closes, so an
+    intraday application must not assume today's master index exists. We walk
+    backward until we find the latest available business-day index.
+    """
     today=datetime.now(timezone.utc).date()
-    seen=set(); out=[]
     for offset in range(days_back):
         day=today-timedelta(days=offset)
-        # weekends normally do not have an index; a 404 is expected.
         try:
             rows=parse_master_index(client.daily_master_index(day))
         except Exception:
             continue
-        for e in rows:
-            if e['accession'] not in seen:
-                seen.add(e['accession']); out.append(e)
-        if out:
-            # Today's index is enough when available; otherwise we fall back to the latest business day.
-            if offset==0:
-                break
-            # On a weekend/holiday, stop at first business day with data.
-            break
-    return out
+        if rows:
+            return rows
+    return []
 
-def scan_market(client:SecClient,max_filings:int=32,feed_count:int=35,on_event=None)->list[dict]:
-    _,by_cik=client.ticker_maps()
-    # Primary discovery: SEC daily master index. It is tiny metadata, complete for the day,
-    # and much more reliable than sampling a narrow current-filings Atom window.
-    entries=recent_index_entries(client,days_back=5)
 
-    # Fallback to current Atom feeds only if the daily index is unavailable.
-    if not entries:
-        seen=set(); entries=[]
-        for form in FORMS:
-            try: batch=parse_atom(client.current_feed(form,0,feed_count),form)
-            except Exception: continue
-            for e in batch:
-                key=e.get('accession')
-                if key and key not in seen:
-                    seen.add(key); entries.append(e)
+def _discover_candidates(client:SecClient, feed_count:int=80):
+    """Merge intraday current feeds with the latest completed daily index."""
+    seen=set(); entries=[]; stats={'atom_entries':0,'index_entries':0,'discovery_errors':0}
 
-    # Prioritize forms with the most interpretable investor signal while retaining recency.
-    priority={'4':0,'144':1,'SC 13D':2,'SC 13D/A':3,'SC 13G':4,'SC 13G/A':5,'8-K':6}
+    # Intraday/current feed first. A failure in one form must not poison the scan.
+    for form in FORMS:
+        try:
+            batch=parse_atom(client.current_feed(form,0,feed_count),form)
+            stats['atom_entries'] += len(batch)
+        except Exception:
+            stats['discovery_errors'] += 1
+            batch=[]
+        for e in batch:
+            key=e.get('accession') or (e.get('source_url'),e.get('form'))
+            if key and key not in seen:
+                seen.add(key); entries.append(e)
+
+    # Always merge the latest completed business-day index. This is the reliability
+    # backstop when current Atom feeds are sparse or transiently unavailable.
+    try:
+        idx=recent_index_entries(client,days_back=7)
+        stats['index_entries']=len(idx)
+    except Exception:
+        stats['discovery_errors'] += 1
+        idx=[]
+    for e in idx:
+        key=e.get('accession') or (e.get('source_url'),e.get('form'))
+        if key and key not in seen:
+            seen.add(key); entries.append(e)
+
+    priority={'4':0,'4/A':1,'144':2,'SC 13D':3,'SC 13D/A':4,'SC 13G':5,'SC 13G/A':6,'8-K':7,'8-K/A':8}
     entries.sort(key=lambda x:(x.get('filed_at',''), -priority.get(x.get('form'),9)), reverse=True)
-    entries=entries[:max_filings]
-    events=[]
+    stats['candidate_entries']=len(entries)
+    return entries,stats
+
+
+def scan_market(client:SecClient,max_filings:int=32,feed_count:int=80,on_event=None)->list[dict]:
+    """Process candidates until max_filings *usable events* have been produced.
+
+    max_filings is deliberately a successful-output cap, not a candidate-input cap.
+    This prevents a run from returning zero merely because the first N filings are
+    reporting-person CIKs, funds, trusts, amendments, or otherwise unresolved.
+    """
+    _,by_cik=client.ticker_maps()
+    entries,stats=_discover_candidates(client,feed_count=feed_count)
+    events=[]; accepted=0; attempted=0; parser_errors=0; no_ticker=0; no_primary=0
+    max_attempts=max(max_filings*8,160)
 
     for e in entries:
+        if accepted>=max_filings or attempted>=max_attempts:
+            break
+        attempted += 1
         cik=e.get('cik','')
         info=by_cik.get(cik,{})
         ticker=_valid_ticker(info.get('ticker',''))
@@ -372,34 +426,63 @@ def scan_market(client:SecClient,max_filings:int=32,feed_count:int=35,on_event=N
         produced=[]
         try:
             if not cik:
-                produced=[_generic_event(e,ticker,cik,company)]
-            else:
+                parser_errors += 1
+                continue
+
+            # First use submissions metadata. If the accession is not present there,
+            # fall back to the filing directory index instead of abandoning the filing.
+            meta={}
+            try:
                 sub=client.submissions(cik)
                 meta=_find_primary(sub,e['accession']) or {}
-                e.update(meta)
-                primary=e.get('primary_document','')
-                raw=client.filing_document(cik,e['accession'],primary) if primary else b''
-                form=e.get('form','')
-                if form in {'4','4/A'} and b'<ownershipDocument' in raw[:12000]:
-                    produced=parse_form4(raw,e,ticker,cik)
-                elif form=='144':
-                    produced=[parse_144(raw,e,ticker,cik)]
-                elif form.startswith('SC 13'):
-                    produced=[parse_ownership(raw,e,ticker,cik)]
-                elif form.startswith('8-K'):
-                    produced=[parse_8k(raw,e,ticker,cik)]
-                else:
-                    produced=[_generic_event(e,ticker,cik,company)]
-        except Exception as ex:
-            g=_generic_event(e,ticker,cik,company)
-            g['detail']=f'Parser fallback: {type(ex).__name__}'
-            produced=[g]
+            except Exception:
+                meta={}
+            e.update(meta)
+            primary=e.get('primary_document','')
+            if not primary:
+                primary=client.primary_from_index(cik,e['accession'],e.get('form',''))
+                e['primary_document']=primary
+            if not primary:
+                no_primary += 1
+                continue
+
+            raw=client.filing_document(cik,e['accession'],primary)
+            form=e.get('form','')
+            if form in {'4','4/A'}:
+                # Some filing documents include an XSL wrapper; XML parsing will tell
+                # us whether this is a structured ownership document.
+                try: produced=parse_form4(raw,e,ticker,cik)
+                except Exception:
+                    # Try another XML file from filing directory when primary guess was wrong.
+                    alt=client.primary_from_index(cik,e['accession'],form)
+                    if alt and alt!=primary:
+                        raw=client.filing_document(cik,e['accession'],alt); e['primary_document']=alt
+                        produced=parse_form4(raw,e,ticker,cik)
+                    else: raise
+            elif form=='144':
+                produced=[parse_144(raw,e,ticker,cik)]
+            elif form.startswith('SC 13'):
+                produced=[parse_ownership(raw,e,ticker,cik)]
+            elif form.startswith('8-K'):
+                produced=[parse_8k(raw,e,ticker,cik)]
+            else:
+                continue
+        except Exception:
+            parser_errors += 1
+            continue
 
         for ev in produced:
             ev['ticker']=_valid_ticker(ev.get('ticker',''))
             if not ev['ticker']:
+                no_ticker += 1
                 continue
             if on_event: on_event(ev)
             else: events.append(ev)
+            accepted += 1
+            if accepted>=max_filings:
+                break
+
+    stats.update({'attempted':attempted,'accepted':accepted,'parser_errors':parser_errors,'no_ticker':no_ticker,'no_primary':no_primary,'max_attempts':max_attempts})
+    client.last_scan_stats=stats
     return [] if on_event else events
 
